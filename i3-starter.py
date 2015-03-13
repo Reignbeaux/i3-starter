@@ -1,37 +1,96 @@
-# Outline
-
-# start dmenu, get selected application
-# save current workspace by using "i3-msg -t ..."
-# start app using "i3-msg exec <app>"
-# get the pid using "pidof <app>"
-
-    # now list all windows of that process using this:
-    # http://stackoverflow.com/questions/2250757/is-there-a-linux-command-to-determine-the-window-ids-associated-with-a-given-pro
-    # when there is a new window, queck it's workspace
-    # when the window isn't on saved workspace, then move it there
-
-    # repeat for x seconds every y seconds
-
 import subprocess
+import json
+import time
+import re
 
 
-def run_dmenu():
+def select_application():
+    # pass output of "dmenu_path" to dmenu
     path_process = subprocess.Popen(['dmenu_path'], stdout=subprocess.PIPE)
     dmenu_process = subprocess.Popen(['dmenu'], stdin=path_process.stdout, stdout=subprocess.PIPE)
 
     path_process.wait()
     dmenu_process.wait()
 
-    return dmenu_process.communicate()[0].decode("utf-8")
-
-def active_workspace():
-    pass
+    return dmenu_process.communicate()[0].decode("utf-8").rstrip()
 
 
-application = run_dmenu()
+def get_active_workspace():
+    workspaces_json = subprocess.check_output(['i3-msg', '-t', 'get_workspaces'])
+    workspaces = json.loads(workspaces_json.decode("utf-8"))
 
-current_workspace = subprocess.check_output('i3-msg', '-t', 'get_workspaces');
+    for workspace in workspaces:
+        if workspace["focused"]:
+            return workspace["num"]
 
 
+def start_application(application):
+    process = subprocess.Popen([application])
 
-#dmenu_path | dmenu "$@"
+    # pids = subprocess.check_output(['pidof', application])
+    pid = process.pid
+    return pid
+
+
+def check_i3_windows(process_id, workspace):
+    end_time = time.time() + 23 # time + 23 seconds
+
+    old_nodes = []
+
+    windows_json = subprocess.check_output(['i3-msg', '-t', 'get_tree'])
+    windows = json.loads(windows_json.decode('utf-8'))
+    read_node(old_nodes, windows)
+
+
+    while time.time() < end_time:
+        windows_json = subprocess.check_output(['i3-msg', '-t', 'get_tree'])
+        windows = json.loads(windows_json.decode('utf-8'))
+
+        nodes_to_compare = []
+        read_node(nodes_to_compare, windows)
+
+        new_nodes = get_new_nodes(old_nodes, nodes_to_compare)
+
+        for new_node in new_nodes:
+            # check if new node depends to the pid
+            output = subprocess.check_output(['xwininfo', '-id', str(new_node['window']), '-wm']).decode("utf-8")
+
+            pattern = re.compile(r'Process\sid:\s([0-9]+)')
+            match = re.match(pattern, output)
+
+            pid_of_window = match.group(0)
+
+            if pid_of_window == process_id:
+                subprocess.Popen(['i3-msg', 'for_window', '[class="' + new_node['window'] + '"]', 'move', 'container', 'to', 'workspace', workspace])
+
+        old_nodes = nodes_to_compare
+
+    #for node in new_nodes:
+    #    if 'window' in node and 'class' in node:
+    #        print('Window-ID: {}; Class: {}'.format(node['window'], node['class']))
+    #    else:
+    #        print('Unspecified')
+
+def get_new_nodes(nodes1, nodes2):
+    check = set([(d['class'], d['window']) for d in nodes1])
+    return [d for d in nodes2 if (d['class'], d['window']) not in check]
+
+def read_node(nodes_list, node_to_add):
+    new_node = {}
+
+    if 'window' in node_to_add and 'window_properties' in node_to_add:
+        new_node['window'] = node_to_add['window']
+        new_node['class'] = node_to_add['window_properties']['class']
+
+        nodes_list.append(new_node)
+
+    if "nodes" in node_to_add:
+        for node in node_to_add['nodes']:
+            read_node(nodes_list, node)
+
+
+selected_application = select_application()
+active_workspace = get_active_workspace()
+pid = start_application(selected_application)
+
+check_i3_windows(pid, active_workspace)
