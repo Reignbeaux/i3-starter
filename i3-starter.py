@@ -56,9 +56,9 @@ def check_i3_windows(process_id, workspace):
             output = subprocess.check_output(['xwininfo', '-id', str(new_node['window']), '-wm']).decode("utf-8")
 
             pattern = re.compile(r'Process\sid:\s([0-9]+)')
-            match = re.match(pattern, output)
+            match = pattern.search(output)
 
-            pid_of_window = match.group(0)
+            pid_of_window = match.groups()[0]
 
             if pid_of_window == process_id:
                 subprocess.Popen(['i3-msg', 'for_window', '[class="' + new_node['window'] + '"]', 'move', 'container', 'to', 'workspace', workspace])
