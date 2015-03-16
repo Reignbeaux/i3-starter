@@ -1,4 +1,4 @@
-* still under development, check back soon *
+*still under development, check back soon*
 # i3-starter
 This little script makes starting applications in i3wm work the way one would expect. It saves the current workspace, starts dmenu, executes your selected application and then moves it to the saved workspace as soon as it appears. That way you can start an application and then move whereever you want without troubles.
 
