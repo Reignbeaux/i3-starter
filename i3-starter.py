@@ -2,6 +2,7 @@ import subprocess
 import json
 import time
 import re
+import psutil, os
 
 
 def select_application():
@@ -67,7 +68,13 @@ def check_i3_windows(process_id, workspace):
             # this can happen when software is using multiple processes
             # if that's the case, parent and child processes have to be considered as well
 
-            if int(pid_of_window) == process_id:
+            pid_list = [process_id]
+
+            get_parents(process_id, pid_list)
+            children_pids = psutil.Process(process_id).get_children(recursive=True)
+            pid_list.extend(map(lambda process: process.pid, children_pids))
+
+            if int(pid_of_window) in pid_list:
                 print("Moving '{}' to workspace '{}'".format(new_node['window'], workspace))
                 subprocess.Popen(['i3-msg', '[id="' + new_node['window'] + '"]', 'move', 'to', 'workspace', workspace])
 
@@ -79,9 +86,21 @@ def check_i3_windows(process_id, workspace):
     #    else:
     #        print('Unspecified')
 
+
+def get_parents(current_pid, pid_list):
+    new_pid = psutil.Process(current_pid).parent()
+
+    if new_pid is None:
+        return
+    else:
+        pid_list.append(new_pid)
+        get_parents(new_pid, pid_list)
+
+
 def get_new_nodes(nodes1, nodes2):
     check = set([(d['class'], d['window']) for d in nodes1])
     return [d for d in nodes2 if (d['class'], d['window']) not in check]
+
 
 def read_node(nodes_list, node_to_add):
     new_node = {}
