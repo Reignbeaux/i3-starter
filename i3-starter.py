@@ -43,6 +43,8 @@ def check_i3_windows(process_id, workspace):
 
 
     while time.time() < end_time:
+        time.sleep(0.1)
+
         windows_json = subprocess.check_output(['i3-msg', '-t', 'get_tree'])
         windows = json.loads(windows_json.decode('utf-8'))
 
@@ -61,7 +63,8 @@ def check_i3_windows(process_id, workspace):
             pid_of_window = match.groups()[0]
 
             if pid_of_window == process_id:
-                subprocess.Popen(['i3-msg', 'for_window', '[class="' + new_node['window'] + '"]', 'move', 'container', 'to', 'workspace', workspace])
+                print("Moving '{}' to workspace '{}'".format(new_node['window'], workspace))
+                subprocess.Popen(['i3-msg', '[id="' + new_node['window'] + '"]', 'move', 'to', 'workspace', workspace])
 
         old_nodes = nodes_to_compare
 
