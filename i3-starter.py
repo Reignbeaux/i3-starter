@@ -62,7 +62,12 @@ def check_i3_windows(process_id, workspace):
 
             pid_of_window = match.groups()[0]
 
-            if pid_of_window == process_id:
+
+            # sometimes, this is not working, since the started process id doesn't match the window's id!
+            # this can happen when software is using multiple processes
+            # if that's the case, parent and child processes have to be considered as well
+
+            if int(pid_of_window) == process_id:
                 print("Moving '{}' to workspace '{}'".format(new_node['window'], workspace))
                 subprocess.Popen(['i3-msg', '[id="' + new_node['window'] + '"]', 'move', 'to', 'workspace', workspace])
 
