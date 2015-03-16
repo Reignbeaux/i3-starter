@@ -43,7 +43,7 @@ def check_i3_windows(process_id, workspace):
 
 
     while time.time() < end_time:
-        time.sleep(0.1)
+        time.sleep(1)
 
         windows_json = subprocess.check_output(['i3-msg', '-t', 'get_tree'])
         windows = json.loads(windows_json.decode('utf-8'))
