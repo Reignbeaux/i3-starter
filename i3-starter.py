@@ -2,7 +2,7 @@ import subprocess
 import json
 import time
 import re
-import psutil, os
+import psutil,os
 
 
 def select_application():
@@ -29,19 +29,17 @@ def start_application(application):
     process = subprocess.Popen([application])
 
     # pids = subprocess.check_output(['pidof', application])
-    pid = process.pid
-    return pid
+    return process.pid
 
 
 def check_i3_windows(process_id, workspace):
-    end_time = time.time() + 23 # time + 23 seconds
+    end_time = time.time() + 23  # time + 23 seconds
 
     old_nodes = []
 
     windows_json = subprocess.check_output(['i3-msg', '-t', 'get_tree'])
     windows = json.loads(windows_json.decode('utf-8'))
     read_node(old_nodes, windows)
-
 
     while time.time() < end_time:
         time.sleep(0.1)
@@ -50,41 +48,43 @@ def check_i3_windows(process_id, workspace):
         windows = json.loads(windows_json.decode('utf-8'))
 
         nodes_to_compare = []
+        # fill nodes_to_compare with current windows
         read_node(nodes_to_compare, windows)
 
+        # compare to get just added windows
         new_nodes = get_new_nodes(old_nodes, nodes_to_compare)
 
-        for new_node in new_nodes:
-            # check if new node depends to the pid
-            output = subprocess.check_output(['xwininfo', '-id', str(new_node['window']), '-wm']).decode("utf-8")
+        if old_nodes:
+            for new_node in new_nodes:
+                # check if new node depends to the pid
+                output = subprocess.check_output(['xwininfo', '-id', str(new_node['window']), '-wm']).decode("utf-8")
 
-            pattern = re.compile(r'Process\sid:\s([0-9]+)')
-            match = pattern.search(output)
+                pattern = re.compile(r'Process\sid:\s([0-9]+)')
+                match = pattern.search(output)
 
-            pid_of_window = match.groups()[0]
+                pid_of_window = match.groups()[0]
 
+                # sometimes, this is not working, since the started process id doesn't match the window's id!
+                # this can happen when software is using multiple processes
+                # if that's the case, parent and child processes have to be considered as well
 
-            # sometimes, this is not working, since the started process id doesn't match the window's id!
-            # this can happen when software is using multiple processes
-            # if that's the case, parent and child processes have to be considered as well
+                pid_list = [process_id]
 
-            pid_list = [process_id]
+                get_parents(process_id, pid_list)
+                children_pids = psutil.Process(process_id).get_children(recursive=True)
+                pid_list.extend(map(lambda process: process.pid, children_pids))
 
-            get_parents(process_id, pid_list)
-            children_pids = psutil.Process(process_id).get_children(recursive=True)
-            pid_list.extend(map(lambda process: process.pid, children_pids))
+                if int(pid_of_window) in pid_list:
+                    print("Moving '{}' to workspace '{}'".format(new_node['window'], workspace))
+                    subprocess.Popen(['i3-msg', '[id="' + str(new_node['window']) + '"]', 'move', 'to', 'workspace', str(workspace)])
 
-            if int(pid_of_window) in pid_list:
-                print("Moving '{}' to workspace '{}'".format(new_node['window'], workspace))
-                subprocess.Popen(['i3-msg', '[id="' + str(new_node['window']) + '"]', 'move', 'to', 'workspace', str(workspace)])
+                    #   for node in new_nodes:
+                    #       if 'window' in node and 'class' in node:
+                    #           print('Window-ID: {}; Class: {}'.format(node['window'], node['class']))
+                    #       else:
+                    #           print('Unspecified')
 
         old_nodes = nodes_to_compare
-
-    #for node in new_nodes:
-    #    if 'window' in node and 'class' in node:
-    #        print('Window-ID: {}; Class: {}'.format(node['window'], node['class']))
-    #    else:
-    #        print('Unspecified')
 
 
 def get_parents(current_pid, pid_list):
