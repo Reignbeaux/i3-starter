@@ -6,4 +6,4 @@ This little script makes starting applications in i3wm work the way one would ex
 
 # How to use
 Just put the script "i3-starter.py" in your ~/.i3/ directory and add this line to your config:
-* coming soon *
+*coming soon*
