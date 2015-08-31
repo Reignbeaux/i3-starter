@@ -1,3 +1,8 @@
+# TODO, so this script gets actually usable without "hacky" tricks:
+# - subscribe to "window" event of i3 (maybe still with timeout) instead
+# of checking it every x seconds X:
+# - somehow get the pid after "exec" using i3
+
 import subprocess
 import json
 import time
